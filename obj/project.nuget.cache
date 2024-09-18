@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "dgSpecHash": "TuXzLEJA7Lc=",
+  "success": true,
+  "projectFilePath": "/Users/nat/projects/ImageSteganography/ImageSteganography.csproj",
+  "expectedPackageFiles": [
+    "/Users/nat/.nuget/packages/sixlabors.imagesharp/3.1.5/sixlabors.imagesharp.3.1.5.nupkg.sha512"
+  ],
+  "logs": []
+}

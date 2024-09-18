@@ -1,0 +1,17 @@
+/Users/nat/projects/ImageSteganography/bin/Debug/net8.0/ImageSteganography
+/Users/nat/projects/ImageSteganography/bin/Debug/net8.0/ImageSteganography.deps.json
+/Users/nat/projects/ImageSteganography/bin/Debug/net8.0/ImageSteganography.runtimeconfig.json
+/Users/nat/projects/ImageSteganography/bin/Debug/net8.0/ImageSteganography.dll
+/Users/nat/projects/ImageSteganography/bin/Debug/net8.0/ImageSteganography.pdb
+/Users/nat/projects/ImageSteganography/bin/Debug/net8.0/SixLabors.ImageSharp.dll
+/Users/nat/projects/ImageSteganography/obj/Debug/net8.0/ImageSteganography.csproj.AssemblyReference.cache
+/Users/nat/projects/ImageSteganography/obj/Debug/net8.0/ImageSteganography.GeneratedMSBuildEditorConfig.editorconfig
+/Users/nat/projects/ImageSteganography/obj/Debug/net8.0/ImageSteganography.AssemblyInfoInputs.cache
+/Users/nat/projects/ImageSteganography/obj/Debug/net8.0/ImageSteganography.AssemblyInfo.cs
+/Users/nat/projects/ImageSteganography/obj/Debug/net8.0/ImageSteganography.csproj.CoreCompileInputs.cache
+/Users/nat/projects/ImageSteganography/obj/Debug/net8.0/ImageSte.AF6CE1A3.Up2Date
+/Users/nat/projects/ImageSteganography/obj/Debug/net8.0/ImageSteganography.dll
+/Users/nat/projects/ImageSteganography/obj/Debug/net8.0/refint/ImageSteganography.dll
+/Users/nat/projects/ImageSteganography/obj/Debug/net8.0/ImageSteganography.pdb
+/Users/nat/projects/ImageSteganography/obj/Debug/net8.0/ImageSteganography.genruntimeconfig.cache
+/Users/nat/projects/ImageSteganography/obj/Debug/net8.0/ref/ImageSteganography.dll
