@@ -4,9 +4,12 @@ using System.Reflection.Metadata;
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.PixelFormats;
 using SixLabors.ImageSharp.Processing;
+using System.IO.Compression;
 
 class Program
 {
+    const int HEADER_BIT_LENGTH = 192;
+    const float RESCALE_BIAS = 1.5f; // how much larger than original we allow before compression starts hitting harder
     static void Main(string[] args)
     {
 
@@ -49,7 +52,7 @@ class Program
         }
     }
 
-    static List<bool> GetImageDataBits(Image<Rgba32> image, int secretImageBits)
+    static List<bool> GetImageDataBits(Image<Rgba32> image, int secretImageBits, int secretImageLengthInBits, int originalWidth, int originalHeight)
     {
         List<bool> imageDataBits = new List<bool>();
         int imageWidth = image.Width;
@@ -57,6 +60,9 @@ class Program
         imageDataBits.AddRange(GetBitsFromInt(imageWidth));
         imageDataBits.AddRange(GetBitsFromInt(imageHeight));
         imageDataBits.AddRange(GetBitsFromInt(secretImageBits));
+        imageDataBits.AddRange(GetBitsFromInt(secretImageLengthInBits));
+        imageDataBits.AddRange(GetBitsFromInt(originalWidth));
+        imageDataBits.AddRange(GetBitsFromInt(originalHeight));
 
         return imageDataBits;
 
@@ -69,6 +75,9 @@ class Program
         imageData.Add("imageWidth", GetIntFromBits(bits.GetRange(0,32)));
         imageData.Add("imageHeight", GetIntFromBits(bits.GetRange(32,32)));
         imageData.Add("secretImageBits", GetIntFromBits(bits.GetRange(64,32)));
+        imageData.Add("secretImageLengthInBits", GetIntFromBits(bits.GetRange(96,32)));
+        imageData.Add("originalWidth", GetIntFromBits(bits.GetRange(128,32)));
+        imageData.Add("originalHeight", GetIntFromBits(bits.GetRange(160,32)));
 
         return imageData;
     }
@@ -125,26 +134,82 @@ class Program
         return bits;
     }
 
+    static Image<Rgba32> ScaleImageDownIfNeccessary(Image<Rgba32> coverImage, Image<Rgba32> secretImage)
+    {
+        int maxWidth = (int)(coverImage.Width * RESCALE_BIAS);
+        int maxHeight = (int)(coverImage.Height * RESCALE_BIAS);
+        int heightAspectRatio = secretImage.Width / secretImage.Height;
+        if (secretImage.Width > maxWidth || secretImage.Height > maxHeight) {
+            Console.Write("Rescaling image original (" + secretImage.Width + "x" + secretImage.Height + ") resized ");
+            int widthDiff = secretImage.Width / maxWidth;
+            int heightDiff = secretImage.Height / maxHeight;
+            if (heightDiff > widthDiff) {
+                Console.WriteLine("(" + maxHeight / heightAspectRatio + "x" + maxHeight + ")");
+                secretImage.Mutate(x => x.Resize(maxHeight / heightAspectRatio, maxHeight));
+            } else if (heightDiff < widthDiff) {
+                Console.WriteLine("(" + maxWidth + "x" + maxWidth * heightAspectRatio + ")");
+                secretImage.Mutate(x => x.Resize(maxWidth, maxWidth * heightAspectRatio));
+            } else {
+                Console.WriteLine("(" + maxWidth + "x" + maxHeight + ")");
+                secretImage.Mutate(x => x.Resize(maxWidth, maxHeight));
+            }
+        }
+        
+        return secretImage;
+    }
+
     static void ScaleEmbedImage(Image<Rgba32> coverImage, Image<Rgba32> secretImage)
     {
+        
+        int originalWidth = secretImage.Width;
+        int originalHeight = secretImage.Height;
+        secretImage = ScaleImageDownIfNeccessary(coverImage, secretImage);
         List<bool> bits = GetBitsFromImage(coverImage, 2);
         string output = string.Join(", ", bits.Select(b => b ? "1" : "0"));
-        Console.WriteLine("Got bits: count: " + bits.Count);
+        Console.WriteLine("Cover image bits: count: " + bits.Count);
 
-        int availableBits = bits.Count - 96; // const 96 TODO image data header
+        int availableBits = bits.Count - HEADER_BIT_LENGTH; // const HEADER_BIT_LENGTH TODO image data header
         int secretImagePixels = secretImage.Width * secretImage.Height;
         int bitsPerPixel = availableBits / secretImagePixels;
         bitsPerPixel /= 3; // each pixel has 3 colors
         if (bitsPerPixel > 8) {
             bitsPerPixel = 8;
         }
-        
-        List<bool> secretImageData = GetImageDataBits(secretImage, bitsPerPixel);
-        Console.WriteLine("secret image data bits count: " + secretImageData.Count);
 
+
+        /// COMPRESSION
+
+        bitsPerPixel = 8;
+        List<bool> bitsToCompress = GetBitsFromImage(secretImage, 8, false);
+        int originalBitsCount = bitsToCompress.Count;
+        List<byte> imageBytes = ConvertBitsToBytes(bitsToCompress);
+        byte[] compressedData = Compress(imageBytes.ToArray());
+        List<bool> secretImageDataCompressed = ConvertBytesToBits(compressedData);
+
+        while (secretImageDataCompressed.Count > availableBits && bitsPerPixel > 1) {
+            bitsPerPixel --;
+            Console.WriteLine("Increasing compression using " + bitsPerPixel + " bits...");
+            bitsToCompress = GetBitsFromImage(secretImage, bitsPerPixel, false);
+            imageBytes = ConvertBitsToBytes(bitsToCompress);
+            compressedData = Compress(imageBytes.ToArray());
+            secretImageDataCompressed = ConvertBytesToBits(compressedData);
+        }
+
+        //List<bool> secretImageBits = GetBitsFromImage(secretImage, bitsPerPixel, false);
+
+        float compressionPercentage = (float)secretImageDataCompressed.Count/(float)originalBitsCount;
+        compressionPercentage *= 100f;
+        
+        Console.WriteLine("Secret image data bits compressed/original(%): " + secretImageDataCompressed.Count + "/" + originalBitsCount + "(" + (int)compressionPercentage + "%)");
         Console.WriteLine("Using " + bitsPerPixel + " bits per pixel");
 
-        secretImageData.AddRange(GetBitsFromImage(secretImage, bitsPerPixel, false));
+        // COMPRESSION END
+        
+        
+        List<bool> secretImageData = GetImageDataBits(secretImage, bitsPerPixel, secretImageDataCompressed.Count, originalWidth, originalHeight);
+        Console.WriteLine("Header bits count: " + secretImageData.Count);
+
+        secretImageData.AddRange(secretImageDataCompressed);
 
         bits = SetBits(bits, secretImageData);
         int currentBit = 0;
@@ -172,31 +237,43 @@ class Program
     {
         List<bool> encodedImageBits = GetBitsFromImage(encodedImage);
         Dictionary<string, int> imageData = LoadImageDataFromBits(encodedImageBits);
-        Console.WriteLine(imageData.Keys.Count);
         var secretWidth = imageData["imageWidth"];
         var secretHeight = imageData["imageHeight"];
         var secretImageBits = imageData["secretImageBits"];
+        var secretImageLengthInBits = imageData["secretImageLengthInBits"];
+        var originalWidth = imageData["originalWidth"];
+        var originalHeight = imageData["originalHeight"];
 
-        Console.WriteLine("Loading secret image (" + secretWidth + " x " +secretHeight + ") - bits: " + secretImageBits);
+        Console.WriteLine("Loading secret image (" + secretWidth + " x " +secretHeight + ") - bits per color: " + secretImageBits);
         var secretImage = new Image<Rgba32>(secretWidth, secretHeight);
 
-        int currentBit = 96; // TODO header const
+
+        int currentBit = 0; // TODO header const
         int startBit = 8 - secretImageBits;
         int endBit = 8;
+        List<bool> secretImageAllBits = encodedImageBits.GetRange(HEADER_BIT_LENGTH, secretImageLengthInBits);
+        byte[] decompressedData = Decompress(ConvertBitsToBytes(secretImageAllBits).ToArray());
+        List<bool> decompressedBits = ConvertBytesToBits(decompressedData);
+
+        Console.WriteLine("Got " + decompressedBits.Count + " decompressed bits - expected: " + (secretWidth * secretHeight * 3 * secretImageBits));
 
         for (int y = 0; y < secretImage.Height; y++)
         {
             for (int x = 0; x < secretImage.Width; x++)
             {
                 secretImage[x, y] = new Rgba32(
-                    SetBits((byte)0, startBit, endBit, encodedImageBits.GetRange(currentBit, secretImageBits)),
-                    SetBits((byte)0, startBit, endBit, encodedImageBits.GetRange(currentBit + secretImageBits, secretImageBits)),
-                    SetBits((byte)0, startBit, endBit, encodedImageBits.GetRange(currentBit + secretImageBits + secretImageBits, secretImageBits)),
+                    SetBits((byte)0, startBit, endBit, decompressedBits.GetRange(currentBit, secretImageBits)),
+                    SetBits((byte)0, startBit, endBit, decompressedBits.GetRange(currentBit + secretImageBits, secretImageBits)),
+                    SetBits((byte)0, startBit, endBit, decompressedBits.GetRange(currentBit + secretImageBits + secretImageBits, secretImageBits)),
                     255
                 );
 
                 currentBit += (3 * secretImageBits);
             }
+        }
+
+        if (originalHeight != secretHeight || originalWidth != secretWidth) {
+            Console.WriteLine("Resizing image encoded size (" + secretWidth + "x" + secretHeight + ") original size (" + originalWidth + "x" + originalHeight + ")");
         }
 
         return secretImage;
@@ -209,6 +286,78 @@ class Program
 
         // Print to console
         Console.WriteLine(output);
+    }
+
+    public static List<byte> ConvertBitsToBytes(List<bool> bits)
+    {
+        List<byte> bytes = new List<byte>();
+        byte currentByte = 0;
+
+        for (int i = 0; i < bits.Count; i++)
+        {
+            // Set the appropriate bit in the current byte
+            if (bits[i])
+            {
+                currentByte |= (byte)(1 << (7 - (i % 8)));
+            }
+
+            // If we've filled a byte (8 bits), add it to the list
+            if (i % 8 == 7)
+            {
+                bytes.Add(currentByte);
+                currentByte = 0; // Reset for the next byte
+            }
+        }
+
+        // Add the last byte if it has any bits set
+        if (bits.Count % 8 != 0)
+        {
+            bytes.Add(currentByte);
+        }
+
+        return bytes;
+    }
+
+    public static List<bool> ConvertBytesToBits(byte[] bytes)
+    {
+        List<bool> bits = new List<bool>();
+
+        foreach (var b in bytes)
+        {
+            for (int i = 7; i >= 0; i--) // Extract bits from the most significant to least significant
+            {
+                bits.Add((b & (1 << i)) != 0);
+            }
+        }
+
+        return bits;
+    }
+
+    public static byte[] Compress(byte[] data)
+    {
+        using (var outputStream = new MemoryStream())
+        {
+            using (var gzipStream = new GZipStream(outputStream, CompressionMode.Compress))
+            {
+                gzipStream.Write(data, 0, data.Length);
+            }
+            return outputStream.ToArray();
+        }
+    }
+
+    public static byte[] Decompress(byte[] compressedData)
+    {
+        using (var inputStream = new MemoryStream(compressedData))
+        {
+            using (var gzipStream = new GZipStream(inputStream, CompressionMode.Decompress))
+            {
+                using (var outputStream = new MemoryStream())
+                {
+                    gzipStream.CopyTo(outputStream);
+                    return outputStream.ToArray();
+                }
+            }
+        }
     }
 
     static List<bool> SetBits(List<bool> destination, List<bool> data)
