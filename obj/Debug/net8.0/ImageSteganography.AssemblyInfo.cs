@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("ImageSteganography")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+f5d04ed01605b2fc21bec2ff33e13fe83353eb7d")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+74edbf19845b1e2601288395a6aa870e8c377703")]
 [assembly: System.Reflection.AssemblyProductAttribute("ImageSteganography")]
 [assembly: System.Reflection.AssemblyTitleAttribute("ImageSteganography")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

@@ -9,45 +9,27 @@ class Program
 {
     static void Main(string[] args)
     {
-        string coverImagePath = "cover.png";
-        string secretImagePath = "secret-dog.png";
-        string encodedOutputPath = "encoded.png";
-        string decodedOutputPath = "decoded.png";
 
         string mode = args[0];
-
-        int encodedQuality = 2;
-        if (args.Length > 1) {
-            encodedQuality = int.Parse(args[1]);
-            if (encodedQuality < 0) {
-                encodedQuality = 1;
-            } else if (encodedQuality > 32) {
-                encodedQuality = 32;
-            }
-        }
-        
-
-        encodedQuality = 2; // maybe reenable this
+        string coverImagePath = "";
+        string secretImagePath = "";
+        string encodedOutputPath = "";
+        string encodedInputPath = "";
+        string decodedOutputPath = "";
 
         if (mode.Equals("encode", StringComparison.OrdinalIgnoreCase))
         {
-            using (var coverImage = Image.Load<Rgba32>(coverImagePath))
-            using (var secretImage = Image.Load<Rgba32>(secretImagePath))
-            {
-                EmbedImage(coverImage, secretImage, encodedQuality);
-                coverImage.Save(encodedOutputPath);
-                Console.WriteLine("Image encoded successfully.");
-            }
+            if (args.Length > 1) coverImagePath = args[1];
+            if (args.Length > 2) secretImagePath = args[2];
+            if (args.Length > 3) encodedOutputPath = args[3];
         }
         else if (mode.Equals("decode", StringComparison.OrdinalIgnoreCase))
         {
-            using (var encodedImage = Image.Load<Rgba32>(encodedOutputPath))
-            {
-                var secretImage = ExtractImage(encodedImage, encodedQuality);
-                secretImage.Save(decodedOutputPath);
-                Console.WriteLine("Image decoded successfully.");
-            }
-        } else if (mode.Equals("scaleencode", StringComparison.OrdinalIgnoreCase))
+            if (args.Length > 1) encodedInputPath = args[1];
+            if (args.Length > 2) decodedOutputPath = args[2];
+        }
+
+        if (mode.Equals("encode", StringComparison.OrdinalIgnoreCase))
         {
             using (var coverImage = Image.Load<Rgba32>(coverImagePath))
             using (var secretImage = Image.Load<Rgba32>(secretImagePath))
@@ -56,9 +38,9 @@ class Program
                 coverImage.Save(encodedOutputPath);
                 Console.WriteLine("Image encoded successfully.");
             }
-        }  else if (mode.Equals("scaledecode", StringComparison.OrdinalIgnoreCase))
+        }  else if (mode.Equals("decode", StringComparison.OrdinalIgnoreCase))
         {
-            using (var encodedImage = Image.Load<Rgba32>(encodedOutputPath))
+            using (var encodedImage = Image.Load<Rgba32>(encodedInputPath))
             {
                 var secretImage = ScaleDecodeImage(encodedImage);
                 secretImage.Save(decodedOutputPath);

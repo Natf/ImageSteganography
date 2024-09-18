@@ -15,3 +15,4 @@
 /Users/nat/projects/ImageSteganography/obj/Debug/net8.0/ImageSteganography.pdb
 /Users/nat/projects/ImageSteganography/obj/Debug/net8.0/ImageSteganography.genruntimeconfig.cache
 /Users/nat/projects/ImageSteganography/obj/Debug/net8.0/ref/ImageSteganography.dll
+/Users/nat/projects/ImageSteganography/obj/Debug/net8.0/ImageSteganography.sourcelink.json
